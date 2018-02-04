@@ -25,6 +25,8 @@ class NestedLSTMCell(Layer):
         depth: Depth of nesting of the memory component.
         activation: Activation function to use
             (see [activations](../activations.md)).
+            In contrast to ordinary LSTMs, this is also
+            the sigmoid activation.
             If you pass None, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
@@ -276,6 +278,8 @@ class NestedLSTM(RNN):
         depth: Depth of nesting of the memory component.
         activation: Activation function to use
             (see [activations](../activations.md)).
+            In contrast to ordinary LSTMs, this is also
+            the sigmoid activation.
             If you pass None, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
@@ -353,7 +357,7 @@ class NestedLSTM(RNN):
 
     @interfaces.legacy_recurrent_support
     def __init__(self, units, depth,
-                 activation='tanh',
+                 activation='sigmoid',
                  recurrent_activation='sigmoid',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
