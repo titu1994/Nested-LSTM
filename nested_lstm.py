@@ -94,7 +94,7 @@ class NestedLSTMCell(Layer):
                  **kwargs):
         super(NestedLSTMCell, self).__init__(**kwargs)
 
-        if depth <= 1:
+        if depth < 1:
             raise ValueError("`depth` must be at least 1. For better performance, consider using depth > 1.")
 
         if implementation != 1:
