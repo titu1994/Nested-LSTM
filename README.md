@@ -34,6 +34,9 @@ x = NestedLSTM(units=64, depth=2)(ip)
 # Cell diagram (depth = 2, from the paper)
 <img src="https://github.com/titu1994/Nested-LSTM/blob/master/images/nested_lstm_diagram.PNG?raw=true" height=100% width=100%>
 
+# Acknowledgements
+Keras code heavily derived from the Tensorflow implementation - https://github.com/hannw/nlstm
+
 # Requirements
 - Keras 2.1.3+
 - Tensorflow 1.2+ or Theano. CNTK untested.
