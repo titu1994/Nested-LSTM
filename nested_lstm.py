@@ -25,8 +25,6 @@ class NestedLSTMCell(Layer):
         depth: Depth of nesting of the memory component.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            In contrast to ordinary LSTMs, this is also
-            the sigmoid activation.
             If you pass None, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
@@ -77,7 +75,7 @@ class NestedLSTMCell(Layer):
     """
 
     def __init__(self, units, depth,
-                 activation='sigmoid',
+                 activation='tanh',
                  recurrent_activation='sigmoid',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -225,12 +223,12 @@ class NestedLSTMCell(Layer):
             gate_inputs = K.bias_add(gate_inputs, self.biases[current_depth])
 
         i = gate_inputs[:, :self.units]  # input gate
-        j = gate_inputs[:, self.units: 2 * self.units]  # new input
+        c = gate_inputs[:, self.units: 2 * self.units]  # new input
         f = gate_inputs[:, self.units * 2: self.units * 3]  # forget gate
         o = gate_inputs[:, self.units * 3: self.units * 4]  # output gate
 
         inner_hidden = c * self.recurrent_activation(f)
-        inner_input = self.recurrent_activation(i) + self.activation(j)
+        inner_input = self.recurrent_activation(i) + self.activation(c)
 
         if (current_depth == self.depth - 1):
             new_c = inner_hidden + inner_input
@@ -278,8 +276,6 @@ class NestedLSTM(RNN):
         depth: Depth of nesting of the memory component.
         activation: Activation function to use
             (see [activations](../activations.md)).
-            In contrast to ordinary LSTMs, this is also
-            the sigmoid activation.
             If you pass None, no activation is applied
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
@@ -357,7 +353,7 @@ class NestedLSTM(RNN):
 
     @interfaces.legacy_recurrent_support
     def __init__(self, units, depth,
-                 activation='sigmoid',
+                 activation='tanh',
                  recurrent_activation='sigmoid',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
