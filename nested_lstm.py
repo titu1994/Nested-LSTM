@@ -18,6 +18,7 @@ class NestedLSTMCell(Layer):
     """Nested NestedLSTM Cell class.
 
     Derived from the paper [Nested LSTMs](https://arxiv.org/abs/1801.10308)
+    Ref: [Tensorflow implementation](https://github.com/hannw/nlstm)
 
     # Arguments
         units: Positive integer, dimensionality of the output space.
