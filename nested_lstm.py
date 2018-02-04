@@ -75,7 +75,7 @@ class NestedLSTMCell(Layer):
     """
 
     def __init__(self, units, depth,
-                 activation='tanh',
+                 activation='sigmoid',
                  recurrent_activation='sigmoid',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
