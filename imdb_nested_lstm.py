@@ -27,10 +27,11 @@ x_test = sequence.pad_sequences(x_test, maxlen=maxlen)
 print('x_train shape:', x_train.shape)
 print('x_test shape:', x_test.shape)
 
+# configuration matches 4.47 Million parameters with `units=600` and `64 embedding dim`
 print('Build model...')
 model = Sequential()
-model.add(Embedding(max_features, 64))
-model.add(NestedLSTM(600, depth=2, dropout=0.2, recurrent_dropout=0.2))  # configuration matches 4.47 Million parameters
+model.add(Embedding(max_features, 128))
+model.add(NestedLSTM(32, depth=2, dropout=0.0, recurrent_dropout=0.0))
 model.add(Dense(1, activation='sigmoid'))
 
 # try using different optimizers and different optimizer configs

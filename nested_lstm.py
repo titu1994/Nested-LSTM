@@ -30,6 +30,9 @@ class NestedLSTMCell(Layer):
         recurrent_activation: Activation function to use
             for the recurrent step
             (see [activations](../activations.md)).
+        cell_activation: Activation function of the first cell gate.
+            Note that in the paper only the first cell_activation is identity.
+            (see [activations](../activations.md)).
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
             used for the linear transformation of the inputs
@@ -77,6 +80,7 @@ class NestedLSTMCell(Layer):
     def __init__(self, units, depth,
                  activation='tanh',
                  recurrent_activation='sigmoid',
+                 cell_activation='linear',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
                  recurrent_initializer='orthogonal',
@@ -98,13 +102,15 @@ class NestedLSTMCell(Layer):
             raise ValueError("`depth` must be at least 1. For better performance, consider using depth > 1.")
 
         if implementation != 1:
-            warnings.warn("Nested LSTMs only supports implementation 2 for the moment. Defaulting to implementation = 2")
+            warnings.warn(
+                "Nested LSTMs only supports implementation 2 for the moment. Defaulting to implementation = 2")
             implementation = 2
 
         self.units = units
         self.depth = depth
         self.activation = activations.get(activation)
         self.recurrent_activation = activations.get(recurrent_activation)
+        self.cell_activation = activations.get(cell_activation)
         self.use_bias = use_bias
 
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -125,7 +131,7 @@ class NestedLSTMCell(Layer):
         self.implementation = implementation
         self.state_size = tuple([self.units] * (self.depth + 1))
         self._dropout_mask = None
-        self.nested_recurrent_masks = None
+        self._nested_recurrent_masks = None
 
     def build(self, input_shape):
         input_dim = input_shape[-1]
@@ -134,11 +140,17 @@ class NestedLSTMCell(Layer):
 
         for i in range(self.depth):
             if i == 0:
-                kernel = self.add_weight(shape=(input_dim + self.units, self.units * 4),
-                                         name='kernel_%d' % (i + 1),
-                                         initializer=self.kernel_initializer,
-                                         regularizer=self.kernel_regularizer,
-                                         constraint=self.kernel_constraint)
+                input_kernel = self.add_weight(shape=(input_dim, self.units * 4),
+                                               name='input_kernel_%d' % (i + 1),
+                                               initializer=self.kernel_initializer,
+                                               regularizer=self.kernel_regularizer,
+                                               constraint=self.kernel_constraint)
+                hidden_kernel = self.add_weight(shape=(self.units, self.units * 4),
+                                                name='kernel_%d' % (i + 1),
+                                                initializer=self.kernel_initializer,
+                                                regularizer=self.kernel_regularizer,
+                                                constraint=self.kernel_constraint)
+                kernel = K.concatenate([input_kernel, hidden_kernel], axis=0)
             else:
                 kernel = self.add_weight(shape=(self.units * 2, self.units * 4),
                                          name='kernel_%d' % (i + 1),
@@ -178,18 +190,18 @@ class NestedLSTMCell(Layer):
                 training=training,
                 count=1)
         if (0 < self.recurrent_dropout < 1 and
-                self.nested_recurrent_masks is None):
+                self._nested_recurrent_masks is None):
             _nested_recurrent_mask = _generate_dropout_mask(
-                    _generate_dropout_ones(inputs, self.units),
-                    self.recurrent_dropout,
-                    training=training,
-                    count=self.depth)
-            self.nested_recurrent_masks = _nested_recurrent_mask
+                _generate_dropout_ones(inputs, self.units),
+                self.recurrent_dropout,
+                training=training,
+                count=self.depth)
+            self._nested_recurrent_masks = _nested_recurrent_mask
 
         # dropout matrices for input units
         dp_mask = self._dropout_mask
         # dropout matrices for recurrent units
-        rec_dp_masks = self.nested_recurrent_masks
+        rec_dp_masks = self._nested_recurrent_masks
 
         h_tm1 = states[0]  # previous memory state
         c_tm1 = states[1:self.depth + 1]  # previous carry states
@@ -209,26 +221,29 @@ class NestedLSTMCell(Layer):
         return h, c
 
     def nested_recurrence(self, inputs, hidden_state, cell_states, recurrent_masks, current_depth):
-        h = hidden_state
-        c = cell_states[current_depth]
-        mask = recurrent_masks[current_depth]
+        h_state = hidden_state
+        c_state = cell_states[current_depth]
 
-        if 0.0 < self.recurrent_dropout <= 1.:
-            h = h * mask
+        if 0.0 < self.recurrent_dropout <= 1. and recurrent_masks is not None:
+            hidden_state = h_state * recurrent_masks[current_depth]
 
-        ip = K.concatenate([inputs, h], axis=-1)
+        ip = K.concatenate([inputs, hidden_state], axis=-1)
         gate_inputs = K.dot(ip, self.kernels[current_depth])
 
         if self.use_bias:
             gate_inputs = K.bias_add(gate_inputs, self.biases[current_depth])
 
         i = gate_inputs[:, :self.units]  # input gate
-        c = gate_inputs[:, self.units: 2 * self.units]  # new input
         f = gate_inputs[:, self.units * 2: self.units * 3]  # forget gate
+        c = gate_inputs[:, self.units: 2 * self.units]  # new input
         o = gate_inputs[:, self.units * 3: self.units * 4]  # output gate
 
-        inner_hidden = c * self.recurrent_activation(f)
-        inner_input = self.recurrent_activation(i) + self.activation(c)
+        inner_hidden = c_state * self.recurrent_activation(f)
+
+        if current_depth == 0:
+            inner_input = self.recurrent_activation(i) + self.cell_activation(c)
+        else:
+            inner_input = self.recurrent_activation(i) + self.activation(c)
 
         if (current_depth == self.depth - 1):
             new_c = inner_hidden + inner_input
@@ -250,6 +265,7 @@ class NestedLSTMCell(Layer):
                   'depth': self.depth,
                   'activation': activations.serialize(self.activation),
                   'recurrent_activation': activations.serialize(self.recurrent_activation),
+                  'cell_activation': activations.serialize(self.cell_activation),
                   'use_bias': self.use_bias,
                   'kernel_initializer': initializers.serialize(self.kernel_initializer),
                   'recurrent_initializer': initializers.serialize(self.recurrent_initializer),
@@ -280,6 +296,9 @@ class NestedLSTM(RNN):
             (ie. "linear" activation: `a(x) = x`).
         recurrent_activation: Activation function to use
             for the recurrent step
+            (see [activations](../activations.md)).
+        cell_activation: Activation function of the first cell gate.
+            Note that in the paper only the first cell_activation is identity.
             (see [activations](../activations.md)).
         use_bias: Boolean, whether the layer uses a bias vector.
         kernel_initializer: Initializer for the `kernel` weights matrix,
@@ -355,6 +374,7 @@ class NestedLSTM(RNN):
     def __init__(self, units, depth,
                  activation='tanh',
                  recurrent_activation='sigmoid',
+                 cell_activation='linear',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
                  recurrent_initializer='orthogonal',
@@ -392,6 +412,7 @@ class NestedLSTM(RNN):
         cell = NestedLSTMCell(units, depth,
                               activation=activation,
                               recurrent_activation=recurrent_activation,
+                              cell_activation=cell_activation,
                               use_bias=use_bias,
                               kernel_initializer=kernel_initializer,
                               recurrent_initializer=recurrent_initializer,
@@ -439,6 +460,10 @@ class NestedLSTM(RNN):
     @property
     def recurrent_activation(self):
         return self.cell.recurrent_activation
+
+    @property
+    def cell_activation(self):
+        return self.cell.cell_activation
 
     @property
     def use_bias(self):
@@ -501,6 +526,7 @@ class NestedLSTM(RNN):
                   'depth': self.depth,
                   'activation': activations.serialize(self.activation),
                   'recurrent_activation': activations.serialize(self.recurrent_activation),
+                  'cell_activation': activations.serialize(self.cell_activation),
                   'use_bias': self.use_bias,
                   'kernel_initializer': initializers.serialize(self.kernel_initializer),
                   'recurrent_initializer': initializers.serialize(self.recurrent_initializer),
@@ -523,5 +549,5 @@ class NestedLSTM(RNN):
     @classmethod
     def from_config(cls, config):
         if 'implementation' in config and config['implementation'] == 0:
-            config['implementation'] = 1
+            config['implementation'] = 2
         return cls(**config)
