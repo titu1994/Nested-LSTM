@@ -13,8 +13,8 @@ from keras.datasets import imdb
 from nested_lstm import NestedLSTM
 
 max_features = 20000
-maxlen = 80  # cut texts after this number of words (among top max_features most common words)
-batch_size = 32
+maxlen = 500  # cut texts after this number of words (among top max_features most common words)
+batch_size = 128
 
 print('Loading data...')
 (x_train, y_train), (x_test, y_test) = imdb.load_data(num_words=max_features)
