@@ -147,16 +147,16 @@ class NestedLSTMCell(Layer):
                                                constraint=self.kernel_constraint)
                 hidden_kernel = self.add_weight(shape=(self.units, self.units * 4),
                                                 name='kernel_%d' % (i + 1),
-                                                initializer=self.kernel_initializer,
-                                                regularizer=self.kernel_regularizer,
-                                                constraint=self.kernel_constraint)
+                                                initializer=self.recurrent_initializer,
+                                                regularizer=self.recurrent_regularizer,
+                                                constraint=self.recurrent_constraint)
                 kernel = K.concatenate([input_kernel, hidden_kernel], axis=0)
             else:
                 kernel = self.add_weight(shape=(self.units * 2, self.units * 4),
                                          name='kernel_%d' % (i + 1),
-                                         initializer=self.kernel_initializer,
-                                         regularizer=self.kernel_regularizer,
-                                         constraint=self.kernel_constraint)
+                                         initializer=self.recurrent_initializer,
+                                         regularizer=self.recurrent_regularizer,
+                                         constraint=self.recurrent_constraint)
             self.kernels.append(kernel)
 
         if self.use_bias:
