@@ -10,7 +10,7 @@ from keras.engine import Layer
 from keras.engine import InputSpec
 from keras.legacy import interfaces
 from keras.layers import RNN
-from keras.layers.recurrent import _generate_dropout_mask, _generate_dropout_ones
+from keras.layers.recurrent import _generate_dropout_mask
 from keras.layers import LSTMCell, LSTM
 
 
@@ -185,14 +185,14 @@ class NestedLSTMCell(Layer):
     def call(self, inputs, states, training=None):
         if 0 < self.dropout < 1 and self._dropout_mask is None:
             self._dropout_mask = _generate_dropout_mask(
-                _generate_dropout_ones(inputs, K.shape(inputs)[-1]),
+                K.ones_like(inputs),
                 self.dropout,
                 training=training,
                 count=1)
         if (0 < self.recurrent_dropout < 1 and
                 self._nested_recurrent_masks is None):
             _nested_recurrent_mask = _generate_dropout_mask(
-                _generate_dropout_ones(inputs, self.units),
+                K.ones_like(states[0]),
                 self.recurrent_dropout,
                 training=training,
                 count=self.depth)
